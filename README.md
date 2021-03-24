@@ -1,2 +1,2 @@
-# gromit.github.io
+# goodgromit.github.io
 Welcome to GoodGood
