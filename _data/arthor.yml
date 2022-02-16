@@ -1,0 +1,14 @@
+Gromit:
+  name        : "Gromit"
+  bio         : "It's not who I am underneath, but what I do that defines me."
+  avatar      : "/assets/images/portrait.jpg"
+  links:
+    - label: "Email"
+      icon: "fas fa-fw fa-envelope-square"
+      url: "mailto:gromit8209@yahoo.co.jp"
+    - label: "Website"
+      icon: "fas fa-fw fa-link"
+      url: "https://gromit.kr"
+    - label: "facebook"
+      icon: "fab fa-fw fa-facebook-square"
+      url: "https://facebook.com/goodgromit"
