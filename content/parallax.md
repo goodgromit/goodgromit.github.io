@@ -1,60 +1,183 @@
 ---
-title: "Parallax"
-date: 2026-04-09T13:42:00+09:00
+title: "Parallax with Depth Map"
+date: 2026-04-09T18:40:00+09:00
 draft: false
 ---
 
-<div style="perspective: 1000px; display: flex; justify-content: center; margin: 40px 0;">
-  <img id="perspective-img" src="/images/example.webp" alt="Example Image" style="transform: rotateY(0deg) rotateX(0deg); box-shadow: 20px 20px 40px rgba(0,0,0,0.3); max-width: 600px; width: 100%; border-radius: 8px; transition: transform 0.1s ease-out;">
+<style>
+  #parallax-container {
+    width: 100%;
+    max-width: 800px;
+    margin: 40px auto;
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  }
+  
+  #parallax-canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    cursor: move;
+  }
+  
+  #hint {
+    text-align: center;
+    margin-top: 20px;
+    color: #666;
+    font-size: 14px;
+  }
+</style>
+
+<div id="parallax-container">
+  <canvas id="parallax-canvas"></canvas>
 </div>
+<div id="hint">Move your mouse over the image</div>
 
 <script>
 (function() {
-  const img = document.getElementById('perspective-img');
-  let isDesktop = window.matchMedia('(min-width: 768px)').matches;
+  const canvas = document.getElementById('parallax-canvas');
+  const ctx = canvas.getContext('2d');
+  const hint = document.getElementById('hint');
   
-  // 데스크톱: 마우스 이벤트
-  if (isDesktop) {
-    document.addEventListener('mousemove', function(e) {
-      const x = e.clientX / window.innerWidth;
-      const y = e.clientY / window.innerHeight;
-      
-      const rotateY = (x - 0.5) * 60; // -30도 ~ 30도
-      const rotateX = (y - 0.5) * -40; // -20도 ~ 20도
-      
-      img.style.transform = `rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
-    });
-  } 
-  // 모바일: 자이로센서
-  else {
-    if (window.DeviceOrientationEvent) {
-      // iOS 13+ 권한 요청
-      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-        img.addEventListener('click', function() {
-          DeviceOrientationEvent.requestPermission()
-            .then(permissionState => {
-              if (permissionState === 'granted') {
-                window.addEventListener('deviceorientation', handleOrientation);
-              }
-            })
-            .catch(console.error);
-        }, { once: true });
-      } else {
-        // Android 및 이전 iOS
-        window.addEventListener('deviceorientation', handleOrientation);
-      }
+  const colorImg = new Image();
+  const depthImg = new Image();
+  
+  let loaded = 0;
+  let mouseX = 0.5;
+  let mouseY = 0.5;
+  let targetX = 0.5;
+  let targetY = 0.5;
+  
+  // Load images
+  colorImg.onload = checkLoaded;
+  depthImg.onload = checkLoaded;
+  
+  colorImg.src = '/images/example.webp';
+  depthImg.src = '/images/example_depth.webp';
+  
+  function checkLoaded() {
+    loaded++;
+    if (loaded === 2) {
+      setupCanvas();
+      animate();
     }
   }
   
-  function handleOrientation(event) {
-    const beta = event.beta;  // X축 회전 (-180 ~ 180)
-    const gamma = event.gamma; // Y축 회전 (-90 ~ 90)
+  function setupCanvas() {
+    canvas.width = colorImg.width;
+    canvas.height = colorImg.height;
+    canvas.style.width = '100%';
+    canvas.style.height = 'auto';
+  }
+  
+  // Mouse/touch interaction
+  const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+  
+  if (isDesktop) {
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      targetX = (e.clientX - rect.left) / rect.width;
+      targetY = (e.clientY - rect.top) / rect.height;
+    });
     
-    // 값을 적절히 스케일링
-    const rotateY = Math.max(-60, Math.min(60, gamma * 1.0));
-    const rotateX = Math.max(-40, Math.min(40, (beta - 90) * 0.6));
+    canvas.addEventListener('mouseleave', () => {
+      targetX = 0.5;
+      targetY = 0.5;
+    });
+  } else {
+    hint.textContent = 'Touch and drag to move';
+    let isDragging = false;
     
-    img.style.transform = `rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
+    canvas.addEventListener('touchstart', () => {
+      isDragging = true;
+    });
+    
+    canvas.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      targetX = (touch.clientX - rect.left) / rect.width;
+      targetY = (touch.clientY - rect.top) / rect.height;
+    });
+    
+    canvas.addEventListener('touchend', () => {
+      isDragging = false;
+      targetX = 0.5;
+      targetY = 0.5;
+    });
+  }
+  
+  function animate() {
+    requestAnimationFrame(animate);
+    
+    // Smooth lerp
+    mouseX += (targetX - mouseX) * 0.1;
+    mouseY += (targetY - mouseY) * 0.1;
+    
+    render();
+  }
+  
+  function render() {
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+    
+    // Get depth data
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(depthImg, 0, 0, width, height);
+    const depthData = tempCtx.getImageData(0, 0, width, height);
+    
+    // Draw with stronger parallax effect
+    const offsetX = (mouseX - 0.5) * 120; // Increased from 50 to 120
+    const offsetY = (mouseY - 0.5) * 120;
+    
+    // Draw base image
+    ctx.drawImage(colorImg, 0, 0, width, height);
+    
+    // Create displacement effect based on depth
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const pixels = imageData.data;
+    const depthPixels = depthData.data;
+    
+    const newImageData = ctx.createImageData(width, height);
+    const newPixels = newImageData.data;
+    
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        
+        // Get depth value (0-255)
+        let depth = depthPixels[i] / 255;
+        
+        // Apply non-linear curve for stronger depth perception
+        depth = Math.pow(depth, 1.5); // Stronger depth gradient
+        
+        // Calculate offset based on depth with enhanced effect
+        const dx = Math.round(offsetX * depth);
+        const dy = Math.round(offsetY * depth);
+        
+        // Source pixel position
+        const sx = Math.max(0, Math.min(width - 1, x - dx));
+        const sy = Math.max(0, Math.min(height - 1, y - dy));
+        const si = (sy * width + sx) * 4;
+        
+        // Copy pixel
+        newPixels[i] = pixels[si];
+        newPixels[i + 1] = pixels[si + 1];
+        newPixels[i + 2] = pixels[si + 2];
+        newPixels[i + 3] = pixels[si + 3];
+      }
+    }
+    
+    ctx.putImageData(newImageData, 0, 0);
   }
 })();
 </script>
