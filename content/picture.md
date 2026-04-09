@@ -13,6 +13,11 @@ draft: false
   const img = document.getElementById('perspective-img');
   let isDesktop = window.matchMedia('(min-width: 768px)').matches;
   
+  // 모바일: 초기 각도 저장
+  let initialGamma = null;
+  let initialBeta = null;
+  let calibrated = false;
+  
   // 데스크톱: 마우스 이벤트
   if (isDesktop) {
     document.addEventListener('mousemove', function(e) {
@@ -50,9 +55,26 @@ draft: false
     const beta = event.beta;  // X축 회전 (-180 ~ 180)
     const gamma = event.gamma; // Y축 회전 (-90 ~ 90)
     
-    // 값을 적절히 스케일링
-    const rotateY = Math.max(-60, Math.min(60, gamma * 1.0));
-    const rotateX = Math.max(-40, Math.min(40, (beta - 90) * 0.6));
+    // 초기 각도 캘리브레이션 (처음 한 번만)
+    if (!calibrated) {
+      initialGamma = gamma;
+      initialBeta = beta;
+      calibrated = true;
+      return; // 첫 프레임은 스킵
+    }
+    
+    // 초기 각도 대비 변화량 계산
+    let deltaGamma = gamma - initialGamma;
+    let deltaBeta = beta - initialBeta;
+    
+    // Deadzone: 작은 움직임 무시 (±2도 이내)
+    const deadzone = 2;
+    if (Math.abs(deltaGamma) < deadzone) deltaGamma = 0;
+    if (Math.abs(deltaBeta) < deadzone) deltaBeta = 0;
+    
+    // ±30도 범위로 제한하고 감도 적용
+    const rotateY = Math.max(-30, Math.min(30, deltaGamma * 0.8));
+    const rotateX = Math.max(-20, Math.min(20, deltaBeta * 0.5));
     
     img.style.transform = `rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
   }
