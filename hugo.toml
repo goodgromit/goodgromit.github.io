@@ -1,0 +1,9 @@
+baseURL = 'https://gromit.net/'
+languageCode = 'ko-kr'
+title = '내 블로그'
+theme = 'PaperMod'
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
