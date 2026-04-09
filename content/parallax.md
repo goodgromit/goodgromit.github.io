@@ -72,10 +72,11 @@ draft: false
     canvas.style.height = 'auto';
   }
   
-  // Mouse/touch interaction
+  // Mouse/touch/gyro interaction
   const isDesktop = window.matchMedia('(min-width: 768px)').matches;
   
   if (isDesktop) {
+    // Desktop: Mouse
     canvas.addEventListener('mousemove', (e) => {
       const rect = canvas.getBoundingClientRect();
       targetX = (e.clientX - rect.left) / rect.width;
@@ -87,27 +88,104 @@ draft: false
       targetY = 0.5;
     });
   } else {
-    hint.textContent = 'Touch and drag to move';
-    let isDragging = false;
+    // Mobile: Gyroscope
+    hint.textContent = 'Tilt your device (tap to enable)';
     
-    canvas.addEventListener('touchstart', () => {
-      isDragging = true;
-    });
+    let gyroActive = false;
+    let initialBeta = null;
+    let initialGamma = null;
     
-    canvas.addEventListener('touchmove', (e) => {
-      if (!isDragging) return;
-      e.preventDefault();
-      const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      targetX = (touch.clientX - rect.left) / rect.width;
-      targetY = (touch.clientY - rect.top) / rect.height;
-    });
+    function handleOrientation(event) {
+      const beta = event.beta;   // X축 회전 (-180 ~ 180)
+      const gamma = event.gamma; // Y축 회전 (-90 ~ 90)
+      
+      if (beta === null || gamma === null) return;
+      
+      // 초기 각도 설정 (캘리브레이션)
+      if (initialBeta === null) {
+        initialBeta = beta;
+        initialGamma = gamma;
+        return;
+      }
+      
+      // 초기 위치 대비 변화량
+      const deltaBeta = beta - initialBeta;
+      const deltaGamma = gamma - initialGamma;
+      
+      // -30 ~ +30도 범위를 0 ~ 1로 매핑
+      targetX = 0.5 + (deltaGamma / 60);
+      targetY = 0.5 + (deltaBeta / 60);
+      
+      // 범위 제한
+      targetX = Math.max(0, Math.min(1, targetX));
+      targetY = Math.max(0, Math.min(1, targetY));
+    }
     
-    canvas.addEventListener('touchend', () => {
-      isDragging = false;
-      targetX = 0.5;
-      targetY = 0.5;
-    });
+    function enableGyro() {
+      if (gyroActive) return;
+      
+      // iOS 13+ 권한 요청
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+          .then(state => {
+            if (state === 'granted') {
+              window.addEventListener('deviceorientation', handleOrientation);
+              gyroActive = true;
+              hint.textContent = 'Tilt your device to move';
+            } else {
+              hint.textContent = 'Permission denied - Touch and drag instead';
+              enableTouchDrag();
+            }
+          })
+          .catch((err) => {
+            console.error(err);
+            hint.textContent = 'Gyro not available - Touch and drag instead';
+            enableTouchDrag();
+          });
+      } else {
+        // Android 및 이전 iOS
+        window.addEventListener('deviceorientation', handleOrientation);
+        gyroActive = true;
+        hint.textContent = 'Tilt your device to move';
+      }
+    }
+    
+    function enableTouchDrag() {
+      hint.textContent = 'Touch and drag to move';
+      let isDragging = false;
+      
+      canvas.addEventListener('touchstart', () => {
+        isDragging = true;
+      });
+      
+      canvas.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        targetX = (touch.clientX - rect.left) / rect.width;
+        targetY = (touch.clientY - rect.top) / rect.height;
+      });
+      
+      canvas.addEventListener('touchend', () => {
+        isDragging = false;
+        targetX = 0.5;
+        targetY = 0.5;
+      });
+    }
+    
+    // 자이로 시작 (탭 or 자동)
+    if (window.DeviceOrientationEvent) {
+      canvas.addEventListener('click', enableGyro, { once: true });
+      
+      // iOS가 아니면 자동 시작
+      if (typeof DeviceOrientationEvent.requestPermission !== 'function') {
+        enableGyro();
+      }
+    } else {
+      // 자이로 없으면 터치 드래그
+      enableTouchDrag();
+    }
   }
   
   function animate() {
