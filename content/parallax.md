@@ -50,6 +50,9 @@ draft: false
   let targetX = 0.5;
   let targetY = 0.5;
   
+  const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+  const lerpSpeed = isDesktop ? 0.1 : 0.25; // Mobile: faster response
+  
   // Load images
   colorImg.onload = checkLoaded;
   depthImg.onload = checkLoaded;
@@ -73,7 +76,6 @@ draft: false
   }
   
   // Mouse/touch/gyro interaction
-  const isDesktop = window.matchMedia('(min-width: 768px)').matches;
   
   if (isDesktop) {
     // Desktop: Mouse
@@ -112,9 +114,9 @@ draft: false
       const deltaBeta = beta - initialBeta;
       const deltaGamma = gamma - initialGamma;
       
-      // -30 ~ +30도 범위를 0 ~ 1로 매핑
-      targetX = 0.5 + (deltaGamma / 60);
-      targetY = 0.5 + (deltaBeta / 60);
+      // 더 민감한 감도 (-20 ~ +20도 범위를 0 ~ 1로 매핑)
+      targetX = 0.5 + (deltaGamma / 40);
+      targetY = 0.5 + (deltaBeta / 40);
       
       // 범위 제한
       targetX = Math.max(0, Math.min(1, targetX));
@@ -191,9 +193,9 @@ draft: false
   function animate() {
     requestAnimationFrame(animate);
     
-    // Smooth lerp
-    mouseX += (targetX - mouseX) * 0.1;
-    mouseY += (targetY - mouseY) * 0.1;
+    // Smooth lerp (faster on mobile)
+    mouseX += (targetX - mouseX) * lerpSpeed;
+    mouseY += (targetY - mouseY) * lerpSpeed;
     
     render();
   }
