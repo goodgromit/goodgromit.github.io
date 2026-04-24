@@ -72,8 +72,8 @@ draft: false
     if (Math.abs(deltaGamma) < deadzone) deltaGamma = 0;
     if (Math.abs(deltaBeta) < deadzone) deltaBeta = 0;
     
-    // ±30도 범위로 제한하고 감도 적용
-    const rotateY = Math.max(-30, Math.min(30, deltaGamma * 0.8));
+    // ±30도 범위로 제한하고 감도 적용 (좌우 반전)
+    const rotateY = Math.max(-30, Math.min(30, -deltaGamma * 0.8));
     const rotateX = Math.max(-20, Math.min(20, deltaBeta * 0.5));
     
     img.style.transform = `rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
